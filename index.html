@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>O'zbekiston Sayohati</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #87CEEB; }
+        #ui { position: absolute; top: 10px; left: 10px; color: white; font-family: sans-serif; }
+        #player { width: 50px; height: 50px; background: blue; position: absolute; bottom: 50px; left: 50%; }
+        #sword { width: 10px; height: 60px; background: silver; position: absolute; display: none; }
+        .enemy { width: 40px; height: 40px; background: red; position: absolute; }
+    </style>
+</head>
+<body>
+    <div id="ui">Pullar: <span id="money">0</span> | Daraja: <span id="lvl">1</span></div>
+    <div id="player"></div>
+    <div id="sword"></div>
+
+    <script>
+        let money = 0;
+        let lvl = 1;
+        const player = document.getElementById('player');
+        const sword = document.getElementById('sword');
+
+        // Hujum funksiyasi (Ekranni bossa)
+        window.onclick = function() {
+            sword.style.display = 'block';
+            sword.style.left = (player.offsetLeft + 50) + 'px';
+            sword.style.top = player.offsetTop + 'px';
+            
+            // Effekt: Qilich yaltirashi
+            if(lvl > 1) sword.style.boxShadow = "0 0 20px yellow";
+
+            setTimeout(() => { 
+                sword.style.display = 'none'; 
+                tekshirish();
+            }, 200);
+        }
+
+        function tekshirish() {
+            // Dushman bilan to'qnashuvni tekshirish logikasi shu yerda bo'ladi
+            money += 10;
+            document.getElementById('money').innerText = money;
+            if(money >= 100) { lvl = 2; document.getElementById('lvl').innerText = lvl; }
+        }
+    </script>
+</body>
+</html>
