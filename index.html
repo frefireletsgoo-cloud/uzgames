@@ -1,46 +1,57 @@
 <!DOCTYPE html>
-<html>
+<html lang="uz">
 <head>
-    <title>O'zbekiston Sayohati</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Uzb Sayohat</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #87CEEB; }
-        #ui { position: absolute; top: 10px; left: 10px; color: white; font-family: sans-serif; }
-        #player { width: 50px; height: 50px; background: blue; position: absolute; bottom: 50px; left: 50%; }
-        #sword { width: 10px; height: 60px; background: silver; position: absolute; display: none; }
-        .enemy { width: 40px; height: 40px; background: red; position: absolute; }
+        body { margin: 0; background: #2c3e50; font-family: 'Arial', sans-serif; overflow: hidden; }
+        #game-container { width: 100vw; height: 100vh; position: relative; background: url('https://img.freepik.com/free-vector/landscape-with-mountains-river_1048-8316.jpg') bottom center/cover; }
+        #player { width: 80px; height: 120px; position: absolute; bottom: 100px; left: 50%; transform: translateX(-50%); transition: 0.2s; background: #e74c3c; border-radius: 10px; border: 3px solid #c0392b; }
+        #sword { width: 100px; height: 10px; background: linear-gradient(to right, silver, white); position: absolute; bottom: 60px; left: 80px; display: none; border-radius: 5px; transform-origin: left; }
+        .enemy { width: 60px; height: 60px; background: #2ecc71; position: absolute; border-radius: 50%; top: 50px; transition: 1s; }
+        #ui { position: absolute; top: 20px; width: 100%; text-align: center; color: white; font-size: 20px; text-shadow: 2px 2px 4px #000; }
+        .btn-attack { position: absolute; bottom: 30px; right: 30px; width: 80px; height: 80px; background: orange; border-radius: 50%; border: 5px solid white; color: white; font-weight: bold; }
     </style>
 </head>
 <body>
-    <div id="ui">Pullar: <span id="money">0</span> | Daraja: <span id="lvl">1</span></div>
-    <div id="player"></div>
-    <div id="sword"></div>
+    <div id="game-container">
+        <div id="ui">Viloyat: Toshkent | Tanga: <span id="coins">0</span></div>
+        <div id="player">
+            <div id="sword"></div>
+            <div style="text-align:center; color:white; margin-top:10px;">👤</div>
+        </div>
+        <button class="btn-attack" onclick="attack()">UR!</button>
+    </div>
 
     <script>
-        let money = 0;
-        let lvl = 1;
-        const player = document.getElementById('player');
+        let coins = 0;
+        let power = 1;
         const sword = document.getElementById('sword');
 
-        // Hujum funksiyasi (Ekranni bossa)
-        window.onclick = function() {
+        function attack() {
             sword.style.display = 'block';
-            sword.style.left = (player.offsetLeft + 50) + 'px';
-            sword.style.top = player.offsetTop + 'px';
+            sword.style.transform = 'rotate(-45deg)';
             
-            // Effekt: Qilich yaltirashi
-            if(lvl > 1) sword.style.boxShadow = "0 0 20px yellow";
+            // Effektlar
+            if(power > 1) {
+                sword.style.boxShadow = "0 0 15px cyan";
+                sword.style.background = "cyan";
+            }
 
-            setTimeout(() => { 
-                sword.style.display = 'none'; 
-                tekshirish();
+            setTimeout(() => {
+                sword.style.display = 'none';
+                spawnEnemyEffect();
             }, 200);
         }
 
-        function tekshirish() {
-            // Dushman bilan to'qnashuvni tekshirish logikasi shu yerda bo'ladi
-            money += 10;
-            document.getElementById('money').innerText = money;
-            if(money >= 100) { lvl = 2; document.getElementById('lvl').innerText = lvl; }
+        function spawnEnemyEffect() {
+            coins += 10;
+            document.getElementById('coins').innerText = coins;
+            if(coins >= 100) {
+                power = 2;
+                alert("Qilichingiz kuchaytirildi! (Efekt qo'shildi)");
+            }
         }
     </script>
 </body>
