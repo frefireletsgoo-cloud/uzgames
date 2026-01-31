@@ -1,22 +1,171 @@
-// 3D Model yuklovchi (GLTFLoader)
-const loader = new THREE.GLTFLoader();
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>3D Modellashtiruvchi</title>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://threejs.org/examples/js/loaders/GLTFLoader.js"></script>
 
-// 1. Qahramon modelini yuklash
-loader.load('https://sizning-saytingiz.uz/models/hero.glb', function (gltf) {
-    const hero = gltf.scene;
-    hero.scale.set(1, 1, 1); // Kattaligi
-    scene.add(hero);
-    
-    // Animatsiyani yoqish
-    const mixer = new THREE.AnimationMixer(hero);
-    mixer.clipAction(gltf.animations[0]).play(); 
-}, undefined, function (error) {
-    console.error(error);
-});
+    <style>
+        body { margin: 0; overflow: hidden; background: #000; display: flex; justify-content: center; align-items: center; }
+        #output-canvas { position: absolute; top: 0; left: 0; z-index: 1; } /* Mediapipe kamerasi */
+        #render-canvas { position: absolute; top: 0; left: 0; z-index: 0; } /* Three.js sahnasi */
+        #info { position: absolute; top: 10px; left: 10px; color: white; font-family: sans-serif; z-index: 2; background: rgba(0,0,0,0.5); padding: 5px; border-radius: 5px; }
+        #camera-button { position: absolute; bottom: 20px; z-index: 2; padding: 10px 20px; font-size: 18px; background: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div id="info">Holat: Kutmoqda...</div>
+    <video id="video" style="display: none;"></video>
+    <canvas id="output-canvas"></canvas>
+    <canvas id="render-canvas"></canvas>
+    <button id="camera-button">Kamerani yoqish</button>
 
-// 2. Samarqand Registon modelini yuklash
-loader.load('https://sizning-saytingiz.uz/models/registan.glb', function (gltf) {
-    const bino = gltf.scene;
-    bino.position.set(0, 0, -20); // Uzoqroqqa qo'yish
-    scene.add(bino);
-});
+    <script type="module">
+        // Three.js sahnani sozlash
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x333333); // Qorong'i fon
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('render-canvas'), antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        camera.position.set(0, 0, 10);
+        camera.lookAt(scene.position);
+
+        // Yorug'lik qo'shish
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+        scene.add(ambientLight);
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
+        directionalLight.position.set(0, 10, 5);
+        scene.add(directionalLight);
+
+        //-----------------------------------------------
+        // MediaPipe Hands va Kamera sozlamalari
+        //-----------------------------------------------
+        const videoElement = document.getElementById('video');
+        const canvasElement = document.getElementById('output-canvas');
+        const canvasCtx = canvasElement.getContext('2d');
+        const infoDisplay = document.getElementById('info');
+        const cameraButton = document.getElementById('camera-button');
+
+        canvasElement.width = window.innerWidth;
+        canvasElement.height = window.innerHeight;
+
+        let isDrawing = false;
+        let lastDrawnPoint = null;
+        const drawnObjects = []; // Chizilgan 3D obyektlar saqlanadi
+
+        const hands = new Hands({locateFile: (file) => {
+            return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
+        }});
+        hands.setOptions({
+            maxNumHands: 1,
+            modelComplexity: 1,
+            minDetectionConfidence: 0.7,
+            minTrackingConfidence: 0.7
+        });
+
+        hands.onResults((results) => {
+            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+            canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+
+            if (results.multiHandLandmarks) {
+                for (const landmarks of results.multiHandLandmarks) {
+                    drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, {color: '#00FF00', lineWidth: 5});
+                    drawLandmarks(canvasCtx, landmarks, {color: '#FF0000', lineWidth: 2});
+
+                    // Barmoq pozitsiyalarini olish
+                    const indexFingerTip = landmarks[8]; // Ko'rsatkich barmoq uchi
+                    const thumbTip = landmarks[4];       // Bosh barmoq uchi
+
+                    // Chizish logikasi: bosh va ko'rsatkich barmoq yaqinlashsa chizishni to'xtatish
+                    const distance = Math.sqrt(
+                        Math.pow(indexFingerTip.x - thumbTip.x, 2) +
+                        Math.pow(indexFingerTip.y - thumbTip.y, 2) +
+                        Math.pow(indexFingerTip.z - thumbTip.z, 2)
+                    );
+
+                    if (distance < 0.1) { // Agar barmoqlar yaqin bo'lsa (qisish)
+                        if (isDrawing) {
+                            infoDisplay.innerText = "Holat: Chizish to'xtatildi.";
+                            lastDrawnPoint = null;
+                        }
+                        isDrawing = false;
+                    } else {
+                        if (!isDrawing) {
+                            infoDisplay.innerText = "Holat: Chizish boshlandi...";
+                        }
+                        isDrawing = true;
+                    }
+
+                    if (isDrawing) {
+                        // 3D sahnaga nuqta qo'yish
+                        create3DObjectFromHand(indexFingerTip);
+                    }
+                }
+            }
+        });
+
+        const cameraFeed = new Camera(videoElement, {
+            onFrame: async () => {
+                await hands.send({image: videoElement});
+            },
+            width: window.innerWidth,
+            height: window.innerHeight
+        });
+
+        cameraButton.onclick = () => {
+            cameraFeed.start();
+            cameraButton.style.display = 'none';
+            infoDisplay.innerText = "Holat: Kameradan qo'l kutilmoqda...";
+        };
+
+        // Three.js sahnasiga 3D obyekt qo'yish funksiyasi
+        function create3DObjectFromHand(landmark) {
+            const x = (landmark.x - 0.5) * 20; // Sahnaga moslash
+            const y = (0.5 - landmark.y) * 20;
+            const z = landmark.z * 20; // Chuqurlik
+
+            const currentPoint = new THREE.Vector3(x, y, z);
+
+            // Avtomatik to'g'irlash (oddiy versiya)
+            if (lastDrawnPoint) {
+                const distance = lastDrawnPoint.distanceTo(currentPoint);
+                if (distance < 1) { // Agar nuqta oldingisiga juda yaqin bo'lsa
+                    currentPoint.copy(lastDrawnPoint); // Avtomatik to'g'irlash
+                }
+            }
+
+            const geometry = new THREE.SphereGeometry(0.2, 8, 8); // Kichik shar
+            const material = new THREE.MeshBasicMaterial({ color: 0x00FFFF }); // Och ko'k rang
+            const sphere = new THREE.Mesh(geometry, material);
+            sphere.position.copy(currentPoint);
+            scene.add(sphere);
+            drawnObjects.push(sphere); // Keyinchalik manipulyatsiya qilish uchun saqlash
+
+            lastDrawnPoint = currentPoint;
+        }
+
+        // Three.js animatsiya loopi
+        function animate() {
+            requestAnimationFrame(animate);
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        // Oynani o'lchami o'zgarganda sahnani yangilash
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            canvasElement.width = window.innerWidth;
+            canvasElement.height = window.innerHeight;
+        });
+
+    </script>
+</body>
+</html>
